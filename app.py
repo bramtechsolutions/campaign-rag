@@ -1,38 +1,42 @@
 from fastapi import FastAPI, Request
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, ServiceContext, StorageContext, load_index_from_storage
-from llama_index.llms import OpenAI
+from llama_index.core import (
+    SimpleDirectoryReader,
+    VectorStoreIndex,
+    ServiceContext,
+    StorageContext,
+    load_index_from_storage
+)
+from llama_index.llms.openai import OpenAI  # ✅ FIXED IMPORT FOR LATEST VERSIONS
 import os
-import logging
 
 app = FastAPI()
 
-# Logging (optional)
-logging.basicConfig(level=logging.INFO)
-
-# Load OpenAI key
+# Load your OpenAI API key from Render environment variable
 openai_api_key = os.getenv("OPENAI_API_KEY")
 llm = OpenAI(api_key=openai_api_key)
 
-# Use service context
+# Create a service context with the selected LLM
 service_context = ServiceContext.from_defaults(llm=llm)
 
-# Load index from persistent storage if it exists
+# Set your persistent index directory (created automatically after first run)
 PERSIST_DIR = "./storage"
+
 try:
+    # Try to load existing index from disk
     storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
     index = load_index_from_storage(storage_context, service_context=service_context)
 except Exception:
-    # First time: Load documents and create index
+    # If no index exists yet, build from documents
     documents = SimpleDirectoryReader("documents").load_data()
     index = VectorStoreIndex.from_documents(documents, service_context=service_context)
     index.storage_context.persist(persist_dir=PERSIST_DIR)
 
-# Create query engine
+# Create a query engine to allow API access
 query_engine = index.as_query_engine()
 
 @app.get("/")
 async def root():
-    return {"message": "LlamaIndex RAG is running."}
+    return {"message": "Campaign RAG is running."}
 
 @app.get("/ask")
 async def ask(request: Request):
