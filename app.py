@@ -2,36 +2,35 @@ from fastapi import FastAPI, Request
 from llama_index.core import (
     SimpleDirectoryReader,
     VectorStoreIndex,
-    ServiceContext,
     StorageContext,
-    load_index_from_storage
+    load_index_from_storage,
+    Settings  # ✅ NEW SETTINGS API
 )
-from llama_index.llms.openai import OpenAI  # ✅ FIXED IMPORT FOR LATEST VERSIONS
+from llama_index.llms.openai import OpenAI
 import os
 
 app = FastAPI()
 
-# Load your OpenAI API key from Render environment variable
+# Load OpenAI API key from environment
 openai_api_key = os.getenv("OPENAI_API_KEY")
 llm = OpenAI(api_key=openai_api_key)
 
-# Create a service context with the selected LLM
-service_context = ServiceContext.from_defaults(llm=llm)
+# Apply the LLM to global settings (new way)
+Settings.llm = llm
 
-# Set your persistent index directory (created automatically after first run)
 PERSIST_DIR = "./storage"
 
 try:
-    # Try to load existing index from disk
+    # Try to load the index from storage
     storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
-    index = load_index_from_storage(storage_context, service_context=service_context)
+    index = load_index_from_storage(storage_context)
 except Exception:
-    # If no index exists yet, build from documents
+    # If loading fails, rebuild from scratch
     documents = SimpleDirectoryReader("documents").load_data()
-    index = VectorStoreIndex.from_documents(documents, service_context=service_context)
+    index = VectorStoreIndex.from_documents(documents)
     index.storage_context.persist(persist_dir=PERSIST_DIR)
 
-# Create a query engine to allow API access
+# Set up the query engine
 query_engine = index.as_query_engine()
 
 @app.get("/")
