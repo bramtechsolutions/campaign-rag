@@ -1,5 +1,4 @@
+llama-index>=0.10.0
 fastapi
 uvicorn
-llama-index
 openai
-gunicorn
