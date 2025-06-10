@@ -1,8 +1,8 @@
 services:
-  - type: worker
-    name: rag-ingestion-worker
+  - type: web_service
+    name: rag-ingestion-service
     env: python
     region: oregon
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: uvicorn app:app --host 0.0.0.0 --port 10000
