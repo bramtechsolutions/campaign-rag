@@ -1,46 +1,78 @@
-from fastapi import FastAPI, Request
-from llama_index.core import (
-    SimpleDirectoryReader,
-    VectorStoreIndex,
-    StorageContext,
-    load_index_from_storage,
-    Settings  # ✅ NEW SETTINGS API
-)
-from llama_index.llms.openai import OpenAI
+import json
 import os
+from typing import List, Dict
 
-app = FastAPI()
+# Paths
+BASE_DIR = os.path.dirname(__file__)
+EXPORT_PATH = os.path.join(BASE_DIR, 'in-game_export.json')
+CHAR_DIR = os.path.join(BASE_DIR, 'characters')
+SESSION_DIR = os.path.join(BASE_DIR, 'sessions')
+WORLD_DIR = os.path.join(BASE_DIR, 'world_data')
 
-# Load OpenAI API key from environment
-openai_api_key = os.getenv("OPENAI_API_KEY")
-llm = OpenAI(api_key=openai_api_key)
+# Ensure directories exist
+for d in (CHAR_DIR, SESSION_DIR, WORLD_DIR):
+    os.makedirs(d, exist_ok=True)
 
-# Apply the LLM to global settings (new way)
-Settings.llm = llm
+def load_export(path: str) -> Dict:
+    with open(path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-PERSIST_DIR = "./storage"
+def write_json(path: str, data: Dict):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-try:
-    # Try to load the index from storage
-    storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
-    index = load_index_from_storage(storage_context)
-except Exception:
-    # If loading fails, rebuild from scratch
-    documents = SimpleDirectoryReader("documents").load_data()
-    index = VectorStoreIndex.from_documents(documents)
-    index.storage_context.persist(persist_dir=PERSIST_DIR)
+def extract_characters(messages: List[Dict]) -> None:
+    for m in messages:
+        if m.get('type') == 'character_definition':
+            name = m['author']['name'].replace(' ', '_')
+            filename = os.path.join(CHAR_DIR, f"{name}.json")
+            character = {
+                'id': m['id'],
+                'name': m['author']['name'],
+                'sheet': m.get('content'),
+                'timestamp': m['timestamp']
+            }
+            write_json(filename, character)
 
-# Set up the query engine
-query_engine = index.as_query_engine()
+def extract_sessions(messages: List[Dict]) -> None:
+    sessions: Dict[str, List[Dict]] = {}
+    for m in messages:
+        date = m['timestamp'][:10]
+        sessions.setdefault(date, []).append({
+            'id': m['id'],
+            'author': m['author']['name'],
+            'text': m.get('content', ''),
+            'timestamp': m['timestamp']
+        })
+    for date, entries in sessions.items():
+        filename = os.path.join(SESSION_DIR, f"session_{date}.json")
+        write_json(filename, {'session_date': date, 'entries': entries})
 
-@app.get("/")
-async def root():
-    return {"message": "Campaign RAG is running."}
+def extract_world_data(messages: List[Dict]) -> None:
+    for m in messages:
+        if m.get('channel_type') == 'lore':
+            title = m.get('content', '').split('\n',1)[0][:50].replace(' ', '_')
+            filename = os.path.join(WORLD_DIR, f"{title}.json")
+            entry = {
+                'id': m['id'],
+                'title': title,
+                'content': m.get('content'),
+                'timestamp': m['timestamp']
+            }
+            write_json(filename, entry)
 
-@app.get("/ask")
-async def ask(request: Request):
-    query = request.query_params.get("q")
-    if not query:
-        return {"error": "Missing 'q' parameter"}
-    response = query_engine.query(query)
-    return {"response": str(response)}
+def main():
+    export = load_export(EXPORT_PATH)
+    messages = export.get('messages', [])
+
+    extract_characters(messages)
+    extract_sessions(messages)
+    extract_world_data(messages)
+
+    print("Export complete:")
+    print(f"- Characters in {CHAR_DIR}")
+    print(f"- Sessions in {SESSION_DIR}")
+    print(f"- World data in {WORLD_DIR}")
+
+if __name__ == '__main__':
+    main()
