@@ -6,6 +6,10 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"message": "RAG Ingestion Service: POST to /ingest with your JSON export file."}
+
 BASE_DIR = os.path.dirname(__file__)
 CHAR_DIR = os.path.join(BASE_DIR, 'characters')
 SESSION_DIR = os.path.join(BASE_DIR, 'sessions')
