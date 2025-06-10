@@ -1,4 +1,0 @@
-llama-index>=0.11.0
-openai
-fastapi
-uvicorn
