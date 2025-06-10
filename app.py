@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 import json
 import os
 from typing import List, Dict
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -12,6 +13,9 @@ WORLD_DIR = os.path.join(BASE_DIR, 'world_data')
 
 for d in (CHAR_DIR, SESSION_DIR, WORLD_DIR):
     os.makedirs(d, exist_ok=True)
+
+class ExportData(BaseModel):
+    messages: List[Dict]
 
 @app.post("/ingest")
 async def ingest_export(file: UploadFile = File(...)):

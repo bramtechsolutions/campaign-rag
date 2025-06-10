@@ -16,6 +16,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 Render.com will run the web service via `render.yaml` and the `Procfile`.
 
 ---
+
 # Repository Structure for RAG Ingestion Pipeline
 
 **Root files (commit these):**
