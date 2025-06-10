@@ -29,7 +29,7 @@ async def ingest_export(file: UploadFile = File(...)):
     export = json.loads(content)
     messages = export.get('messages', [])
 
-    # Extract characters
+    # Extract campaign characters
     for m in messages:
         if m.get('type') == 'character_definition':
             name = m['author']['name'].replace(' ', '_')
